@@ -7,6 +7,7 @@ class WorkspaceModel {
   final String createdBy;
   final List<String> memberIds;
   final List<String> members;
+  final String joinCode; // 12 haneli benzersiz davet kodu (WS1234ABCDEF)
   final Color color;
   final IconData icon;
   final DateTime createdAt;
@@ -19,6 +20,7 @@ class WorkspaceModel {
     required this.createdBy,
     required this.memberIds,
     required this.members,
+    required this.joinCode,
     required this.color,
     required this.icon,
     required this.createdAt,
@@ -34,6 +36,8 @@ class WorkspaceModel {
       createdBy: data['createdBy'] ?? '',
       memberIds: List<String>.from(data['memberIds'] ?? []),
       members: List<String>.from(data['members'] ?? []),
+      joinCode:
+          data['joinCode'] ?? generateWorkspaceJoinCode(data['createdBy']),
       color: Color(data['colorValue'] ?? Colors.blue.value),
       icon: IconData(
         data['iconCode'] ?? Icons.folder.codePoint,
@@ -56,11 +60,51 @@ class WorkspaceModel {
       'createdBy': createdBy,
       'memberIds': memberIds,
       'members': members,
+      'joinCode': joinCode,
       'colorValue': color.value,
       'iconCode': icon.codePoint,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
+  }
+
+  // Workspace join code generator - 12 haneli workspace kodu
+  // Format: [2 hane prefix][4 hane user ID][6 hane random]
+  static String generateWorkspaceJoinCode([String? userId]) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = DateTime.now().millisecondsSinceEpoch;
+
+    // 1. Prefix (2 hane) - Workspace türü belirteci
+    String prefix = 'WS'; // Workspace için WS
+
+    // 2. User ID son 4 hanesi (4 hane)
+    String userPart = '';
+    if (userId != null && userId.length >= 4) {
+      final lastFour = userId.substring(userId.length - 4).toUpperCase();
+      userPart = lastFour.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+      while (userPart.length < 4) {
+        userPart += chars[(random + userPart.length) % chars.length];
+      }
+
+      if (userPart.length > 4) {
+        userPart = userPart.substring(0, 4);
+      }
+    } else {
+      for (int i = 0; i < 4; i++) {
+        userPart += chars[(random + i) % chars.length];
+      }
+    }
+
+    // 3. Random kısım (6 hane) - Daha güvenli
+    String randomPart = '';
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final microTime = DateTime.now().microsecondsSinceEpoch;
+    for (int i = 0; i < 6; i++) {
+      randomPart += chars[(timestamp + microTime + i * 17) % chars.length];
+    }
+
+    return prefix + userPart + randomPart;
   }
 
   // Copy with method
@@ -71,6 +115,7 @@ class WorkspaceModel {
     String? createdBy,
     List<String>? memberIds,
     List<String>? members,
+    String? joinCode,
     Color? color,
     IconData? icon,
     DateTime? createdAt,
@@ -83,6 +128,7 @@ class WorkspaceModel {
       createdBy: createdBy ?? this.createdBy,
       memberIds: memberIds ?? this.memberIds,
       members: members ?? this.members,
+      joinCode: joinCode ?? this.joinCode,
       color: color ?? this.color,
       icon: icon ?? this.icon,
       createdAt: createdAt ?? this.createdAt,
@@ -103,6 +149,7 @@ class WorkspaceModel {
         createdBy: userId,
         memberIds: [userId],
         members: [userName],
+        joinCode: generateWorkspaceJoinCode(userId),
         color: const Color(0xFFFFB5BA), // Pastel pembe
         icon: Icons.home,
         createdAt: now,
@@ -115,6 +162,7 @@ class WorkspaceModel {
         createdBy: userId,
         memberIds: [userId],
         members: [userName],
+        joinCode: generateWorkspaceJoinCode(userId),
         color: const Color(0xFFB5EAEA), // Pastel turkuaz
         icon: Icons.business,
         createdAt: now,
@@ -127,6 +175,7 @@ class WorkspaceModel {
         createdBy: userId,
         memberIds: [userId],
         members: [userName],
+        joinCode: generateWorkspaceJoinCode(userId),
         color: const Color(0xFFFFF8B5), // Pastel sarı
         icon: Icons.celebration,
         createdAt: now,

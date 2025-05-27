@@ -39,18 +39,20 @@ class DemoFirestoreService {
       uid: 'demo_dev_001',
       email: 'dev@sepet.com',
       displayName: 'Geliştirici',
-      photoUrl: null,
+      photoURL: null,
       createdAt: DateTime.now().subtract(const Duration(days: 30)),
       lastLoginAt: DateTime.now(),
+      workspaceIds: [],
     );
 
     _users['demo_test_002'] = UserModel(
       uid: 'demo_test_002',
       email: 'test@sepet.com',
       displayName: 'Test Kullanıcısı',
-      photoUrl: null,
+      photoURL: null,
       createdAt: DateTime.now().subtract(const Duration(days: 20)),
       lastLoginAt: DateTime.now(),
+      workspaceIds: [],
     );
 
     // Demo sepetler

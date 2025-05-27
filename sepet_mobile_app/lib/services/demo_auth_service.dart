@@ -56,9 +56,10 @@ class DemoAuthService {
       uid: _currentUser!.uid,
       email: _currentUser!.email,
       displayName: _currentUser!.displayName,
-      photoUrl: null,
+      photoURL: null,
       createdAt: DateTime.now().subtract(const Duration(days: 30)),
       lastLoginAt: DateTime.now(),
+      workspaceIds: [],
     );
   }
 
@@ -219,13 +220,13 @@ class DemoUser {
   final String uid;
   final String email;
   final String displayName;
-  final String? photoUrl;
+  final String? photoURL;
 
   DemoUser({
     required this.uid,
     required this.email,
     required this.displayName,
-    this.photoUrl,
+    this.photoURL,
   });
 }
 

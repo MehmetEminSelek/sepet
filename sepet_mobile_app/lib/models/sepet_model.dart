@@ -12,7 +12,7 @@ class SepetModel {
   final String workspaceId; // Hangi workspace'e ait
   final List<String> members;
   final List<String> memberIds; // Firebase User UIDs
-  final String joinCode; // 6 haneli benzersiz davet kodu (ABC123)
+  final String joinCode; // 12 haneli benzersiz davet kodu (SP1234ABCDEF)
   @JsonKey(fromJson: _colorFromJson, toJson: _colorToJson)
   final Color color;
   @JsonKey(fromJson: _iconFromJson, toJson: _iconToJson)
@@ -181,19 +181,91 @@ class SepetModel {
       IconData(codePoint, fontFamily: 'MaterialIcons');
   static int _iconToJson(IconData icon) => icon.codePoint;
 
-  // Join code generator - 6 haneli benzersiz kod üretir (ABC123)
-  static String _generateJoinCode() {
+  // Professional join code generator - 12 haneli profesyonel kod üretir
+  // Format: [2 hane prefix][4 hane user ID][6 hane random]
+  static String _generateJoinCode([String? userId]) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = DateTime.now().millisecondsSinceEpoch;
-    String code = '';
-    for (int i = 0; i < 6; i++) {
-      code += chars[(random + i) % chars.length];
+
+    // 1. Prefix (2 hane) - Sepet türü belirteci
+    String prefix = 'SP'; // Sepet için SP
+
+    // 2. User ID son 4 hanesi (4 hane)
+    String userPart = '';
+    if (userId != null && userId.length >= 4) {
+      // User ID'nin son 4 hanesini al ve büyük harfe çevir
+      final lastFour = userId.substring(userId.length - 4).toUpperCase();
+      // Sadece alfanumerik karakterleri al
+      userPart = lastFour.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+      // Eğer 4 haneden az ise random karakterlerle tamamla
+      while (userPart.length < 4) {
+        userPart += chars[(random + userPart.length) % chars.length];
+      }
+
+      // Eğer 4 haneden fazla ise ilk 4 haneyi al
+      if (userPart.length > 4) {
+        userPart = userPart.substring(0, 4);
+      }
+    } else {
+      // User ID yoksa random 4 hane
+      for (int i = 0; i < 4; i++) {
+        userPart += chars[(random + i) % chars.length];
+      }
     }
-    return code;
+
+    // 3. Random kısım (6 hane) - Daha güvenli
+    String randomPart = '';
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final microTime = DateTime.now().microsecondsSinceEpoch;
+    for (int i = 0; i < 6; i++) {
+      randomPart += chars[(timestamp + microTime + i * 13) % chars.length];
+    }
+
+    return prefix + userPart + randomPart;
   }
 
   // Public method for generating new join codes
-  static String generateJoinCode() => _generateJoinCode();
+  static String generateJoinCode([String? userId]) => _generateJoinCode(userId);
+
+  // Workspace join code generator - 12 haneli workspace kodu
+  // Format: [2 hane prefix][4 hane user ID][6 hane random]
+  static String generateWorkspaceJoinCode([String? userId]) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = DateTime.now().millisecondsSinceEpoch;
+
+    // 1. Prefix (2 hane) - Workspace türü belirteci
+    String prefix = 'WS'; // Workspace için WS
+
+    // 2. User ID son 4 hanesi (4 hane)
+    String userPart = '';
+    if (userId != null && userId.length >= 4) {
+      final lastFour = userId.substring(userId.length - 4).toUpperCase();
+      userPart = lastFour.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+      while (userPart.length < 4) {
+        userPart += chars[(random + userPart.length) % chars.length];
+      }
+
+      if (userPart.length > 4) {
+        userPart = userPart.substring(0, 4);
+      }
+    } else {
+      for (int i = 0; i < 4; i++) {
+        userPart += chars[(random + i) % chars.length];
+      }
+    }
+
+    // 3. Random kısım (6 hane) - Daha güvenli
+    String randomPart = '';
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final microTime = DateTime.now().microsecondsSinceEpoch;
+    for (int i = 0; i < 6; i++) {
+      randomPart += chars[(timestamp + microTime + i * 17) % chars.length];
+    }
+
+    return prefix + userPart + randomPart;
+  }
 
   // Getter'lar
   int get itemCount => items.length;

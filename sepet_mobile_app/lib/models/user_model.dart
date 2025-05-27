@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:flutter/material.dart';
 
 part 'user_model.g.dart';
 
@@ -7,17 +8,22 @@ class UserModel {
   final String uid;
   final String email;
   final String displayName;
-  final String? photoUrl;
+  @JsonKey(name: 'photoURL')
+  final String? photoURL;
   final DateTime createdAt;
   final DateTime lastLoginAt;
+  final List<String> workspaceIds;
+  final String? fcmToken;
 
-  const UserModel({
+  UserModel({
     required this.uid,
     required this.email,
     required this.displayName,
-    this.photoUrl,
+    this.photoURL,
     required this.createdAt,
     required this.lastLoginAt,
+    required this.workspaceIds,
+    this.fcmToken,
   });
 
   // JSON serialization
@@ -28,12 +34,18 @@ class UserModel {
   // Firestore serialization
   factory UserModel.fromFirestore(Map<String, dynamic> data) {
     return UserModel(
-      uid: data['uid'],
-      email: data['email'],
-      displayName: data['displayName'],
-      photoUrl: data['photoUrl'],
-      createdAt: DateTime.parse(data['createdAt']),
-      lastLoginAt: DateTime.parse(data['lastLoginAt']),
+      uid: data['uid'] ?? '',
+      email: data['email'] ?? '',
+      displayName: data['displayName'] ?? '',
+      photoURL: data['photoURL'],
+      createdAt: data['createdAt'] != null
+          ? DateTime.parse(data['createdAt'])
+          : DateTime.now(),
+      lastLoginAt: data['lastLoginAt'] != null
+          ? DateTime.parse(data['lastLoginAt'])
+          : DateTime.now(),
+      workspaceIds: List<String>.from(data['workspaceIds'] ?? []),
+      fcmToken: data['fcmToken'],
     );
   }
 
@@ -42,9 +54,11 @@ class UserModel {
       'uid': uid,
       'email': email,
       'displayName': displayName,
-      'photoUrl': photoUrl,
+      'photoURL': photoURL,
       'createdAt': createdAt.toIso8601String(),
       'lastLoginAt': lastLoginAt.toIso8601String(),
+      'workspaceIds': workspaceIds,
+      'fcmToken': fcmToken,
     };
   }
 
@@ -53,17 +67,21 @@ class UserModel {
     String? uid,
     String? email,
     String? displayName,
-    String? photoUrl,
+    String? photoURL,
     DateTime? createdAt,
     DateTime? lastLoginAt,
+    List<String>? workspaceIds,
+    String? fcmToken,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
-      photoUrl: photoUrl ?? this.photoUrl,
+      photoURL: photoURL ?? this.photoURL,
       createdAt: createdAt ?? this.createdAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
+      workspaceIds: workspaceIds ?? this.workspaceIds,
+      fcmToken: fcmToken ?? this.fcmToken,
     );
   }
 
@@ -78,6 +96,6 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, email: $email, displayName: $displayName)';
+    return 'UserModel(displayName: $displayName, email: $email)';
   }
 }

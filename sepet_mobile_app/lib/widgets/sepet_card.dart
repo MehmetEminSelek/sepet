@@ -9,6 +9,20 @@ class SepetCard extends StatelessWidget {
 
   const SepetCard({super.key, required this.sepet, required this.onTap});
 
+  String _getSepetOwner() {
+    // Sepet sahibini bul
+    if (sepet.members.isNotEmpty) {
+      // createdBy ID'si ile eşleşen member'ı bul
+      final createdByIndex = sepet.memberIds.indexOf(sepet.createdBy);
+      if (createdByIndex != -1 && createdByIndex < sepet.members.length) {
+        return sepet.members[createdByIndex];
+      }
+      // Bulamazsa ilk üyeyi döndür
+      return sepet.members.first;
+    }
+    return 'Bilinmeyen';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -46,7 +60,7 @@ class SepetCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        sepet.name,
+                        '${sepet.name} - ${_getSepetOwner()}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,

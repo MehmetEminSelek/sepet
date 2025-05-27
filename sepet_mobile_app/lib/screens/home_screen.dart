@@ -60,6 +60,115 @@ class _HomeScreenState extends State<HomeScreen> {
               // Tema ayarları ekranı açılacak
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: () async {
+              // Debug: Sepetleri kontrol et
+              if (_currentUser != null) {
+                await _firestoreService.debugUserSepetler(_currentUser!.uid);
+                await _firestoreService.debugAllSepetler();
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            onPressed: () async {
+              // Demo data yükle
+              if (_currentUser != null) {
+                try {
+                  await _firestoreService.seedDummyData(
+                    _currentUser!.uid,
+                    _currentUser!.displayName ?? 'Kullanıcı',
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Demo verisi yüklendi'),
+                      backgroundColor: AppColors.successGreen,
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Demo verisi yüklenemedi: $e'),
+                      backgroundColor: AppColors.errorRed,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.build_circle),
+            onPressed: () async {
+              // Workspace'leri düzelt
+              if (_currentUser != null) {
+                try {
+                  await _firestoreService.fixAllSepetWorkspaceIds();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Sepet kategorileri düzeltildi'),
+                      backgroundColor: AppColors.successGreen,
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Düzeltme başarısız: $e'),
+                      backgroundColor: AppColors.errorRed,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () async {
+              // RESET: Tüm verileri sil ve yeniden başla
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Tüm Verileri Sıfırla'),
+                  content: const Text(
+                    'Tüm sepetleriniz ve kategorileriniz silinecek ve temiz demo verisi yüklenecek.\n\nBu işlem geri alınamaz. Devam etmek istiyor musunuz?'
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('İptal'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('Sıfırla'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true && _currentUser != null) {
+                try {
+                  await _firestoreService.resetUserDataCompletely(
+                    _currentUser!.uid,
+                    _currentUser!.displayName ?? 'Kullanıcı',
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Tüm veriler sıfırlandı ve demo verisi yüklendi'),
+                      backgroundColor: AppColors.successGreen,
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Sıfırlama başarısız: $e'),
+                      backgroundColor: AppColors.errorRed,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.person_outline),
             onSelected: (value) async {
@@ -148,27 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // İstatistik kartları
-                Row(
-                  children: [
-                    Expanded(
-                      child: StatCard(
-                        title: AppStrings.totalBaskets,
-                        value: '${sepetler.length}',
-                        icon: Icons.shopping_basket_outlined,
-                        backgroundColor: AppColors.statCardBlue,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: StatCard(
-                        title: AppStrings.totalProducts,
-                        value: '${_calculateTotalProducts(sepetler)}',
-                        icon: Icons.inventory_2_outlined,
-                        backgroundColor: AppColors.statCardGreen,
-                      ),
-                    ),
-                  ],
-                ),
+                _buildStatsSection(sepetler),
                 const SizedBox(height: 24),
 
                 // Sepetler başlığı
@@ -281,6 +370,54 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStatsSection(List<SepetModel> sepetler) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildStatItem(
+            icon: Icons.shopping_basket_outlined,
+            label: 'Toplam Sepet',
+            value: sepetler.length.toString(),
+          ),
+          _buildStatItem(
+            icon: Icons.shopping_cart_outlined,
+            label: 'Toplam Ürün',
+            value: _calculateTotalProducts(sepetler).toString(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(
+      {required IconData icon, required String label, required String value}) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 40, color: AppColors.textPrimary),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ],
     );
   }
 

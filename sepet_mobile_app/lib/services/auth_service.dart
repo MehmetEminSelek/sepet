@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/user_model.dart';
 
 class AuthService {
@@ -164,13 +166,26 @@ class AuthService {
 
   // User document oluştur
   Future<void> _createUserDocument(User user, String displayName) async {
+    // FCM token al (sadece mobilde)
+    String? fcmToken;
+    if (!kIsWeb) {
+      try {
+        fcmToken = await FirebaseMessaging.instance.getToken();
+        print('FCM Token alındı: $fcmToken');
+      } catch (e) {
+        print('FCM Token alma hatası: $e');
+      }
+    }
+
     final userModel = UserModel(
       uid: user.uid,
       email: user.email!,
       displayName: displayName,
-      photoUrl: user.photoURL,
+      photoURL: user.photoURL,
       createdAt: DateTime.now(),
       lastLoginAt: DateTime.now(),
+      workspaceIds: [],
+      fcmToken: fcmToken,
     );
 
     await _firestore
@@ -181,10 +196,28 @@ class AuthService {
 
   // Son giriş zamanını güncelle
   Future<void> _updateLastLogin(User user) async {
+    // FCM token'ı da güncelle (sadece mobilde)
+    String? fcmToken;
+    if (!kIsWeb) {
+      try {
+        fcmToken = await FirebaseMessaging.instance.getToken();
+      } catch (e) {
+        print('FCM Token alma hatası: $e');
+      }
+    }
+
+    final updateData = {
+      'lastLoginAt': DateTime.now().toIso8601String(),
+    };
+
+    if (fcmToken != null) {
+      updateData['fcmToken'] = fcmToken;
+    }
+
     await _firestore
         .collection('users')
         .doc(user.uid)
-        .update({'lastLoginAt': DateTime.now().toIso8601String()});
+        .update(updateData);
   }
 
   // Auth exception messages

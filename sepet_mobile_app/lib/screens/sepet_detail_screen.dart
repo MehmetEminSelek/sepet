@@ -33,6 +33,10 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
     _currentUser = _authService.currentUser;
   }
 
+  bool _hasAccessToSepet(SepetModel sepet) {
+    return sepet.memberIds.contains(_currentUser?.uid);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_currentUser == null) {
@@ -69,44 +73,73 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
               isNotFound: true);
         }
 
+        if (!_hasAccessToSepet(sepet)) {
+          return _buildErrorState('Bu sepete erişim yetkiniz yok',
+              isNotFound: true);
+        }
+
         return Scaffold(
-          backgroundColor: const Color(0xFFF8F9FE),
-          body: CustomScrollView(
-            controller: widget.externalScrollController,
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              // Modern App Bar
-              _buildModernAppBar(sepet),
+          backgroundColor: Colors.black.withOpacity(0.3),
+          body: DraggableScrollableSheet(
+            initialChildSize: 1.0,
+            minChildSize: 0.3,
+            maxChildSize: 1.0,
+            snap: true,
+            snapSizes: const [0.3, 1.0],
+            builder: (context, scrollController) {
+              return NotificationListener<DraggableScrollableNotification>(
+                onNotification: (notification) {
+                  if (notification.extent <= 0.4) {
+                    Navigator.of(context).pop();
+                  }
+                  return true;
+                },
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF8F9FE),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  child: CustomScrollView(
+                    controller: scrollController,
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      // Modern App Bar
+                      _buildModernAppBar(sepet),
 
-              // Sepet Bilgi Kartı
-              SliverToBoxAdapter(
-                child: RepaintBoundary(
-                  child: _buildSepetInfoCard(sepet),
+                      // Sepet Bilgi Kartı
+                      SliverToBoxAdapter(
+                        child: RepaintBoundary(
+                          child: _buildSepetInfoCard(sepet),
+                        ),
+                      ),
+
+                      // İstatistikler
+                      SliverToBoxAdapter(
+                        child: RepaintBoundary(
+                          child: _buildStatsSection(sepet),
+                        ),
+                      ),
+
+                      // Ürünler Başlığı
+                      SliverToBoxAdapter(
+                        child: RepaintBoundary(
+                          child: _buildProductsHeader(sepet),
+                        ),
+                      ),
+
+                      // Ürün Listesi
+                      _buildProductsList(sepet),
+
+                      // Alt boşluk (overflow önleme)
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 100),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-
-              // İstatistikler
-              SliverToBoxAdapter(
-                child: RepaintBoundary(
-                  child: _buildStatsSection(sepet),
-                ),
-              ),
-
-              // Ürünler Başlığı
-              SliverToBoxAdapter(
-                child: RepaintBoundary(
-                  child: _buildProductsHeader(sepet),
-                ),
-              ),
-
-              // Ürün Listesi
-              _buildProductsList(sepet),
-
-              // Alt boşluk (overflow önleme)
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 24),
-              ),
-            ],
+              );
+            },
           ),
           floatingActionButton: RepaintBoundary(
             child: _buildModernFAB(sepet),
@@ -124,7 +157,6 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
       pinned: true,
       elevation: 0,
       backgroundColor: Colors.transparent,
-      leading: null,
       actions: [
         Container(
           margin: const EdgeInsets.all(8),
@@ -141,7 +173,7 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
           ),
           child: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert,
-                color: AppColors.primaryBlue, size: 18),
+                color: AppColors.primaryBlue, size: 16),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             onSelected: (value) async {
@@ -158,7 +190,7 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
                 value: 'edit',
                 child: Row(
                   children: [
-                    Icon(Icons.edit_outlined, size: 18),
+                    Icon(Icons.edit_outlined, size: 16),
                     SizedBox(width: 8),
                     Text('Düzenle'),
                   ],
@@ -168,7 +200,7 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
                 value: 'share',
                 child: Row(
                   children: [
-                    Icon(Icons.share_outlined, size: 18),
+                    Icon(Icons.share_outlined, size: 16),
                     SizedBox(width: 8),
                     Text('Paylaş'),
                   ],
@@ -178,7 +210,7 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                    Icon(Icons.delete_outline, color: Colors.red, size: 16),
                     SizedBox(width: 8),
                     Text('Sil', style: TextStyle(color: Colors.red)),
                   ],
@@ -208,11 +240,11 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
                 children: [
                   Center(
                     child: Container(
-                      width: 70,
-                      height: 6,
+                      width: 40,
+                      height: 4,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryBlue,
-                        borderRadius: BorderRadius.circular(3),
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
@@ -221,16 +253,16 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 32,
+                        height: 32,
                         decoration: BoxDecoration(
                           color: sepet.color.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(
                           sepet.icon,
                           color: sepet.color,
-                          size: 18,
+                          size: 16,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -431,7 +463,7 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 20),
+          Icon(icon, color: color, size: 18),
           const SizedBox(height: 6),
           Text(
             value,
@@ -492,7 +524,7 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.sort, size: 16, color: AppColors.primaryBlue),
+                      Icon(Icons.sort, size: 14, color: AppColors.primaryBlue),
                       SizedBox(width: 4),
                       Text(
                         'Sırala',
@@ -553,7 +585,7 @@ class _SepetDetailScreenState extends State<SepetDetailScreen> {
             ),
             child: const Icon(
               Icons.shopping_cart_outlined,
-              size: 40,
+              size: 32,
               color: AppColors.primaryBlue,
             ),
           ),

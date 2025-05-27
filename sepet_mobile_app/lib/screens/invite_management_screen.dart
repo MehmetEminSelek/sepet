@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/sepet_model.dart';
+import '../models/user_model.dart';
+import '../services/firestore_service.dart';
+import '../services/demo_auth_service.dart';
 
 /// Davet Yönetimi Ekranı - 3 farklı davet yöntemi
 class InviteManagementScreen extends StatefulWidget {
@@ -18,15 +22,20 @@ class InviteManagementScreen extends StatefulWidget {
 class _InviteManagementScreenState extends State<InviteManagementScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+  List<UserModel> _searchResults = [];
+  bool _isSearching = false;
+  String? _searchError;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -42,6 +51,7 @@ class _InviteManagementScreenState extends State<InviteManagementScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
+            Tab(icon: Icon(Icons.person_add), text: 'Kullanıcı Ara'),
             Tab(icon: Icon(Icons.code), text: 'Kod'),
             Tab(icon: Icon(Icons.qr_code), text: 'QR Kod'),
             Tab(icon: Icon(Icons.share), text: 'Link'),
@@ -51,10 +61,150 @@ class _InviteManagementScreenState extends State<InviteManagementScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
+          _buildUserSearchTab(),
           _buildJoinCodeTab(),
           _buildQRCodeTab(),
           _buildShareLinkTab(),
         ],
+      ),
+    );
+  }
+
+  // 0️⃣ Kullanıcı Arama Sekmesi
+  Widget _buildUserSearchTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Kullanıcı adı veya e-posta ile ara...',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              errorText: _searchError,
+            ),
+            onChanged: _searchUsers,
+          ),
+          const SizedBox(height: 16),
+          if (_isSearching)
+            const Center(child: CircularProgressIndicator())
+          else if (_searchResults.isEmpty && _searchController.text.isNotEmpty)
+            const Center(
+              child: Text(
+                'Kullanıcı bulunamadı',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
+          else
+            Expanded(
+              child: ListView.builder(
+                itemCount: _searchResults.length,
+                itemBuilder: (context, index) {
+                  final user = _searchResults[index];
+                  final isAlreadyMember =
+                      widget.sepet.memberIds.contains(user.uid);
+
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: AppColors.modernPink.withOpacity(0.2),
+                      child: Text(
+                        user.displayName[0].toUpperCase(),
+                        style: TextStyle(
+                          color: AppColors.modernPink,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    title: Text(user.displayName),
+                    subtitle: Text(user.email),
+                    trailing: isAlreadyMember
+                        ? const Chip(
+                            label: Text('Üye'),
+                            backgroundColor: AppColors.successGreen,
+                            labelStyle: TextStyle(color: Colors.white),
+                          )
+                        : FilledButton(
+                            onPressed: () => _inviteUser(user),
+                            child: const Text('Davet Et'),
+                          ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _searchUsers(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _searchError = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+      _searchError = null;
+    });
+
+    try {
+      final firestoreService =
+          Provider.of<FirestoreService>(context, listen: false);
+      final results = await firestoreService.searchUsers(query);
+
+      setState(() {
+        _searchResults = results;
+        _isSearching = false;
+      });
+    } catch (e) {
+      setState(() {
+        _searchError = 'Arama sırasında bir hata oluştu';
+        _isSearching = false;
+      });
+    }
+  }
+
+  Future<void> _inviteUser(UserModel user) async {
+    try {
+      final firestoreService =
+          Provider.of<FirestoreService>(context, listen: false);
+      final authService = Provider.of<DemoAuthService>(context, listen: false);
+      final currentUser = authService.currentUser;
+
+      if (currentUser == null) {
+        _showErrorSnackBar('Kullanıcı oturumu bulunamadı');
+        return;
+      }
+
+      await firestoreService.inviteUserToSepet(
+        sepetId: widget.sepet.id,
+        invitedUserId: user.uid,
+        invitedByUserId: currentUser.uid,
+      );
+
+      _showSuccessSnackBar('${user.displayName} kullanıcısı davet edildi');
+    } catch (e) {
+      _showErrorSnackBar('Davet gönderilirken bir hata oluştu');
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.errorRed,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
     );
   }
@@ -511,40 +661,56 @@ class _InviteManagementScreenState extends State<InviteManagementScreen>
   }
 
   void _shareQRCode() {
-    Share.share(
-      'Sepetim "${widget.sepet.name}" ile alışveriş yapalım!\n\n'
-      'Kod: ${widget.sepet.joinCode}\n'
-      'Link: ${_generateShareLink()}',
-      subject: 'Sepet Daveti - ${widget.sepet.name}',
-    );
+    try {
+      Share.share(
+        'Sepetim "${widget.sepet.name}" ile alışveriş yapalım!\n\n'
+        'Kod: ${widget.sepet.joinCode}\n'
+        'Link: ${_generateShareLink()}',
+        subject: 'Sepet Daveti - ${widget.sepet.name}',
+      );
+    } catch (e) {
+      _showErrorSnackBar('Paylaşım sırasında hata oluştu: $e');
+    }
   }
 
   void _shareLink() {
-    Share.share(
-      'Sepetim "${widget.sepet.name}" ile alışveriş yapalım!\n\n'
-      'Bu linke tıklayarak sepete katıl: ${_generateShareLink()}\n\n'
-      'Veya kodu gir: ${widget.sepet.joinCode}',
-      subject: 'Sepet Daveti - ${widget.sepet.name}',
-    );
+    try {
+      Share.share(
+        'Sepetim "${widget.sepet.name}" ile alışveriş yapalım!\n\n'
+        'Bu linke tıklayarak sepete katıl: ${_generateShareLink()}\n\n'
+        'Veya kodu gir: ${widget.sepet.joinCode}',
+        subject: 'Sepet Daveti - ${widget.sepet.name}',
+      );
+    } catch (e) {
+      _showErrorSnackBar('Paylaşım sırasında hata oluştu: $e');
+    }
   }
 
   void _shareViaWhatsApp() {
-    final message = 'Merhaba! 👋\n\n'
-        '"${widget.sepet.name}" sepetime katılmak ister misin?\n\n'
-        '📱 Sepet uygulamasını aç\n'
-        '✅ "Sepete Katıl" seçeneğini seç\n'
-        '🔢 Bu kodu gir: ${widget.sepet.joinCode}\n\n'
-        'Veya bu linke tıkla: ${_generateShareLink()}';
+    try {
+      final message = 'Merhaba! 👋\n\n'
+          '"${widget.sepet.name}" sepetime katılmak ister misin?\n\n'
+          '📱 Sepet uygulamasını aç\n'
+          '✅ "Sepete Katıl" seçeneğini seç\n'
+          '🔢 Bu kodu gir: ${widget.sepet.joinCode}\n\n'
+          'Veya bu linke tıkla: ${_generateShareLink()}';
 
-    Share.share(message, subject: 'Sepet Daveti');
+      Share.share(message, subject: 'Sepet Daveti');
+    } catch (e) {
+      _showErrorSnackBar('WhatsApp paylaşımı sırasında hata oluştu: $e');
+    }
   }
 
   void _shareViaSMS() {
-    final message = '"${widget.sepet.name}" sepetime katıl!\n'
-        'Kod: ${widget.sepet.joinCode}\n'
-        'Link: ${_generateShareLink()}';
+    try {
+      final message = '"${widget.sepet.name}" sepetime katıl!\n'
+          'Kod: ${widget.sepet.joinCode}\n'
+          'Link: ${_generateShareLink()}';
 
-    Share.share(message);
+      Share.share(message);
+    } catch (e) {
+      _showErrorSnackBar('SMS paylaşımı sırasında hata oluştu: $e');
+    }
   }
 
   void _showSuccessSnackBar(String message) {

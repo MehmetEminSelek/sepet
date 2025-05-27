@@ -167,7 +167,7 @@ class _WorkspaceHomeScreenState extends State<WorkspaceHomeScreen>
 
   Widget _buildWorkspaceTab(WorkspaceModel workspace) {
     return StreamBuilder<List<SepetModel>>(
-      stream: _firestoreService.getWorkspaceSepetler(workspace.id),
+      stream: _firestoreService.getWorkspaceSepetler(workspace.id, userId: _currentUser?.uid),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
